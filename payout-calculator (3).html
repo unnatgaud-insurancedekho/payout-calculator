@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payout Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root {
+  --brand: #1a56db;
+  --brand-light: #e8f0fe;
+  --brand-dark: #1240a8;
+  --surface: #ffffff;
+  --surface-2: #f7f8fa;
+  --border: #e2e6ed;
+  --text: #111827;
+  --text-2: #6b7280;
+  --text-3: #9ca3af;
+  --green: #059669;
+  --green-light: #d1fae5;
+  --radius: 10px;
+  --step: #e8f0fe;
+  --step-done: #1a56db;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  color: var(--text);
+}
+
+/* HEADER */
+header {
+  background: var(--brand);
+  color: #fff;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+header h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
+header p  { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+.dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; flex-shrink: 0; }
+.dot.loading { background: #fbbf24; animation: pulse 1s infinite; }
+.dot.error   { background: #f87171; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+.btn-pdf {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.15s;
+}
+.btn-pdf:hover { background: rgba(255,255,255,0.25); }
+.btn-pdf:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* MAIN */
+main { max-width: 600px; margin: 0 auto; padding: 24px 16px 48px; }
+
+/* PROGRESS STRIP */
+.progress-strip {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.prog-step {
+  flex: 1;
+  padding: 10px 6px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-3);
+  border-right: 1px solid var(--border);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.prog-step:last-child { border-right: none; }
+.prog-step.active  { background: var(--brand-light); color: var(--brand); }
+.prog-step.done    { background: var(--brand); color: #fff; }
+
+/* STEP CARDS */
+.step-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.step-card.locked {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.step-card.completed .step-head { background: var(--brand); }
+.step-card.completed .step-num  { background: rgba(255,255,255,0.2); color: #fff; }
+.step-card.completed .step-title{ color: #fff; }
+.step-card.completed .step-summary { display: block; }
+
+.step-head {
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: default;
+}
+.step-num {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--brand-light);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.step-title  { font-size: 13px; font-weight: 600; color: var(--text); }
+.step-summary{ display: none; margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.85); font-family: 'DM Mono', monospace; }
+
+.step-body { padding: 16px; }
+
+/* INPUTS */
+label { display: block; font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; }
+select, input[type=text], input[type=number] {
+  width: 100%; height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  padding: 0 12px;
+  background: var(--surface);
+  appearance: none; -webkit-appearance: none;
+  outline: none;
+  transition: border-color 0.15s;
+}
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px;
+}
+select:focus, input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(26,86,219,0.1); }
+input[type=number] { -moz-appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button { display: none; }
+
+/* GID hint */
+.gid-hint { font-size: 11px; color: var(--text-3); margin-top: 5px; }
+
+.btn-next {
+  margin-top: 12px;
+  width: 100%; height: 40px;
+  background: var(--brand); color: #fff;
+  border: none; border-radius: 8px;
+  font-size: 14px; font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-next:hover { background: var(--brand-dark); }
+.btn-next:disabled { background: #93c5fd; cursor: not-allowed; }
+
+/* RATE TOGGLE */
+.toggle-group { display: flex; gap: 8px; }
+.toggle-btn {
+  flex: 1; height: 42px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--surface); font-size: 14px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text-2); cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.toggle-btn:hover:not(.unavailable) { border-color: var(--brand); color: var(--brand); background: var(--brand-light); }
+.toggle-btn.active { border-color: var(--brand); background: var(--brand); color: #fff; }
+.toggle-btn.unavailable { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.na-pill {
+  display: none; font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px;
+  background: var(--border); color: var(--text-3);
+}
+.toggle-btn.unavailable .na-pill { display: inline-block; }
+
+/* CALCULATE BUTTON */
+.btn-calc {
+  width: 100%; height: 46px;
+  background: var(--brand); color: #fff;
+  border: none; border-radius: 8px;
+  font-size: 15px; font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  margin-top: 4px;
+}
+.btn-calc:hover { background: var(--brand-dark); }
+.btn-calc:active { transform: scale(0.99); }
+.btn-calc:disabled { background: #93c5fd; cursor: not-allowed; }
+
+/* RESULT */
+#result { display: none; }
+
+.plan-type-banner {
+  background: var(--brand-light); border: 1px solid #93c5fd;
+  border-radius: 8px; padding: 10px 16px;
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.plan-type-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #3b82f6; }
+.plan-type-value { font-size: 15px; font-weight: 600; color: var(--brand); }
+.rate-mode-badge { margin-left: auto; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+
+.result-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.stat {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 10px;
+  display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0;
+}
+.stat-label  { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-3); font-weight: 600; margin-bottom: 8px; }
+.stat-pct    { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 6px; }
+.stat-amount { font-size: 12px; color: var(--text-2); line-height: 1.3; }
+.stat.highlight { background: var(--brand-light); border-color: #93c5fd; }
+.stat.highlight .stat-pct    { color: var(--brand); }
+.stat.highlight .stat-amount { color: #3b82f6; }
+
+.breakdown { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+.brow {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border);
+}
+.brow:last-child { border-bottom: none; }
+.brow.total { font-weight: 600; padding-top: 10px; font-size: 14px; }
+.brow .lbl  { color: var(--text-2); }
+.brow .val  { font-weight: 500; font-family: 'DM Mono', monospace; font-size: 13px; }
+.brow.total .val { color: var(--brand); }
+
+/* RESET */
+.btn-reset {
+  width: 100%; height: 42px;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn-reset:hover { border-color: #f87171; color: #dc2626; background: #fef2f2; }
+
+.save-note { font-size: 11px; color: var(--text-3); text-align: center; margin-top: 8px; }
+
+/* SAVE STATUS */
+#save-status {
+  font-size: 12px; text-align: center; padding: 6px;
+  border-radius: 6px; margin-top: 8px; display: none;
+}
+#save-status.ok  { background: var(--green-light); color: var(--green); }
+#save-status.err { background: #fee2e2; color: #dc2626; }
+
+.note { font-size: 11px; color: var(--text-3); text-align: center; margin-top: 16px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div id="hdr-dot" class="dot loading"></div>
+    <div>
+      <h1>Payout Calculator</h1>
+      <p id="hdr-status">Loading rate data…</p>
+    </div>
+  </div>
+  <button class="btn-pdf" id="btn-pdf" disabled onclick="downloadPDF()">
+    ⬇ Download Rate Grid (PDF)
+  </button>
+</header>
+
+<main>
+
+  <!-- PROGRESS -->
+  <div class="progress-strip">
+    <div class="prog-step" id="prog-0">GID</div>
+    <div class="prog-step" id="prog-1">Insurer</div>
+    <div class="prog-step" id="prog-2">Plan</div>
+    <div class="prog-step" id="prog-3">PPT/PT</div>
+    <div class="prog-step" id="prog-4">Freq</div>
+    <div class="prog-step" id="prog-5">Rate</div>
+    <div class="prog-step" id="prog-6">Premium</div>
+  </div>
+
+  <!-- STEP 1: GID -->
+  <div class="step-card active" id="card-0">
+    <div class="step-head">
+      <div class="step-num">1</div>
+      <div class="step-title">Agent GID Code</div>
+      <div class="step-summary" id="sum-0"></div>
+    </div>
+    <div class="step-body">
+      <label for="inp-gid">Enter your GID code</label>
+      <input type="text" id="inp-gid" placeholder="e.g. GID-00123" autocomplete="off" />
+      <div class="gid-hint">Your unique agent identifier from the system</div>
+      <button class="btn-next" id="btn-gid-next" onclick="confirmGID()" disabled>Continue</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: INSURER -->
+  <div class="step-card locked" id="card-1">
+    <div class="step-head">
+      <div class="step-num">2</div>
+      <div class="step-title">Insurer</div>
+      <div class="step-summary" id="sum-1"></div>
+    </div>
+    <div class="step-body">
+      <label for="sel-insurer">Select insurer</label>
+      <select id="sel-insurer">
+        <option value="">— select —</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- STEP 3: PLAN -->
+  <div class="step-card locked" id="card-2">
+    <div class="step-head">
+      <div class="step-num">3</div>
+      <div class="step-title">Plan Name</div>
+      <div class="step-summary" id="sum-2"></div>
+    </div>
+    <div class="step-body">
+      <label for="sel-plan">Select plan</label>
+      <select id="sel-plan">
+        <option value="">— select —</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- STEP 4: PPT/PT -->
+  <div class="step-card locked" id="card-3">
+    <div class="step-head">
+      <div class="step-num">4</div>
+      <div class="step-title">PPT / PT</div>
+      <div class="step-summary" id="sum-3"></div>
+    </div>
+    <div class="step-body">
+      <label for="sel-ppt">Select PPT/PT</label>
+      <select id="sel-ppt">
+        <option value="">— select —</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- STEP 5: FREQUENCY -->
+  <div class="step-card locked" id="card-4">
+    <div class="step-head">
+      <div class="step-num">5</div>
+      <div class="step-title">Payment Frequency</div>
+      <div class="step-summary" id="sum-4"></div>
+    </div>
+    <div class="step-body">
+      <label for="sel-freq">Select frequency</label>
+      <select id="sel-freq">
+        <option value="">— select —</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- STEP 6: RATE TYPE -->
+  <div class="step-card locked" id="card-5">
+    <div class="step-head">
+      <div class="step-num">6</div>
+      <div class="step-title">Rate Type</div>
+      <div class="step-summary" id="sum-5"></div>
+    </div>
+    <div class="step-body">
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="btn-offline" onclick="setRateMode('offline')">Offline</button>
+        <button class="toggle-btn unavailable" id="btn-online" onclick="setRateMode('online')">
+          Online <span class="na-pill">N/A</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 7: PREMIUM -->
+  <div class="step-card locked" id="card-6">
+    <div class="step-head">
+      <div class="step-num">7</div>
+      <div class="step-title">Annual Premium</div>
+      <div class="step-summary" id="sum-6"></div>
+    </div>
+    <div class="step-body">
+      <label for="inp-premium">Enter annual premium (₹)</label>
+      <input type="number" id="inp-premium" placeholder="e.g. 100000" min="1" />
+      <button class="btn-calc" id="btn-calc" disabled onclick="calculate()">Calculate Payout</button>
+    </div>
+  </div>
+
+  <!-- RESULT CARD -->
+  <div class="step-card" id="result" style="display:none;">
+    <div class="step-head" style="background:var(--brand);">
+      <div class="step-num" style="background:rgba(255,255,255,0.2);color:#fff;">✓</div>
+      <div class="step-title" style="color:#fff;">Payout Summary</div>
+    </div>
+    <div class="step-body">
+      <div class="plan-type-banner">
+        <div>
+          <div class="plan-type-label">Plan type</div>
+          <div class="plan-type-value" id="r-plan-type">—</div>
+        </div>
+        <div class="rate-mode-badge" id="r-rate-mode-badge">Offline rate</div>
+      </div>
+
+      <div class="result-grid">
+        <div class="stat">
+          <div class="stat-label">FYC</div>
+          <div class="stat-pct"    id="r-fyc-pct">—</div>
+          <div class="stat-amount" id="r-fyc-amt">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">SYC</div>
+          <div class="stat-pct"    id="r-syc-pct">—</div>
+          <div class="stat-amount" id="r-syc-amt">—</div>
+        </div>
+        <div class="stat highlight">
+          <div class="stat-label">Total</div>
+          <div class="stat-pct"    id="r-tot-pct">—</div>
+          <div class="stat-amount" id="r-tot-amt">—</div>
+        </div>
+      </div>
+
+      <div class="breakdown">
+        <div class="brow"><span class="lbl">Annual premium</span><span class="val" id="r-premium-val">—</span></div>
+        <div class="brow"><span class="lbl">FYC (<span id="r-fyc-rate">—</span>%)</span><span class="val" id="r-fyc-calc">—</span></div>
+        <div class="brow"><span class="lbl">SYC (<span id="r-syc-rate">—</span>%)</span><span class="val" id="r-syc-calc">—</span></div>
+        <div class="brow total"><span class="lbl">Total payout</span><span class="val" id="r-total-calc">—</span></div>
+      </div>
+
+      <div id="save-status"></div>
+      <div class="save-note">This calculation is automatically logged against your GID.</div>
+    </div>
+  </div>
+
+  <!-- RESET -->
+  <button class="btn-reset" id="btn-reset" onclick="resetAll()" style="display:none;">
+    ↺ Start over / New calculation
+  </button>
+
+  <p class="note">Rates fetched live · Refresh to pick up addendum updates</p>
+</main>
+
+<script>
+const RATES_SHEET_ID  = '1HUuQieygjV0pF2oGUJmjeeas1feF8UZ9Ijm_EyV7dSQ';
+const LEADS_SHEET_ID  = '19VtHwIS8RC7szrZu3TqaLEyKXSR7kF2cQI36B2WMYo4';
+const SHEET_NAME      = 'Master Data';
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${RATES_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+const APPS_SCRIPT_URL = ''; // ← paste your Apps Script Web App URL here after deployment
+
+let rows = [], rateMode = 'offline', currentStep = 0;
+
+const $ = id => document.getElementById(id);
+const selInsurer = $('sel-insurer');
+const selPlan    = $('sel-plan');
+const selPpt     = $('sel-ppt');
+const selFreq    = $('sel-freq');
+const inpPremium = $('inp-premium');
+const inpGid     = $('inp-gid');
+
+function fmt(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
+function clean(s) { return (s||'').replace(/^"|"$/g,'').trim(); }
+
+function setStatus(msg, type) {
+  $('hdr-dot').className = 'dot'+(type==='ok'?'':type==='loading'?' loading':' error');
+  $('hdr-status').textContent = msg;
+}
+
+function parseCSV(text) {
+  const lines=[]; let cur='',inQ=false; const cells=[];
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(c==='"'){inQ=!inQ;}
+    else if(c===','&&!inQ){cells.push(cur.trim());cur='';}
+    else if((c==='\n'||c==='\r')&&!inQ){
+      cells.push(cur.trim());cur='';
+      if(cells.some(x=>x))lines.push([...cells]);
+      cells.length=0;
+      if(c==='\r'&&text[i+1]==='\n')i++;
+    }else{cur+=c;}
+  }
+  if(cur||cells.length){cells.push(cur.trim());if(cells.some(x=>x))lines.push(cells);}
+  return lines;
+}
+
+async function loadData() {
+  setStatus('Loading rate data…','loading');
+  try {
+    const res  = await fetch(CSV_URL);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text = await res.text();
+    const lines = parseCSV(text);
+    if(lines.length<2) throw new Error('Empty');
+    rows = lines.slice(1).map(r=>({
+      insurer:    clean(r[0]),  plan:      clean(r[1]),
+      planType:   clean(r[2]),  ppt:       clean(r[5]),
+      fyc_off:    parseFloat(clean(r[6]))||0,
+      syc_off:    parseFloat(clean(r[7]))||0,
+      tot_off:    parseFloat(clean(r[8]))||0,
+      onlineAvail:clean(r[9]).toLowerCase()==='yes',
+      fyc_on:     parseFloat(clean(r[10]))||0,
+      syc_on:     parseFloat(clean(r[11]))||0,
+      tot_on:     parseFloat(clean(r[12]))||0,
+      freq:       clean(r[13]),
+    })).filter(r=>r.insurer&&r.plan);
+
+    const insurers=[...new Set(rows.map(r=>r.insurer))].sort();
+    selInsurer.innerHTML='<option value="">— select —</option>'+
+      insurers.map(i=>`<option value="${i}">${i}</option>`).join('');
+
+    setStatus(`${rows.length} rates loaded`,'ok');
+    $('btn-pdf').disabled = false;
+  } catch(e) {
+    setStatus('Failed to load — check sheet sharing','error');
+    console.error(e);
+  }
+}
+
+/* ---- STEP MANAGEMENT ---- */
+function unlockStep(n) {
+  const card = $(`card-${n}`);
+  if(!card) return;
+  card.classList.remove('locked');
+  currentStep = n;
+  updateProgress();
+  setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'nearest'}),100);
+}
+
+function markDone(n, summary) {
+  const card = $(`card-${n}`);
+  card.classList.add('completed');
+  const s = $(`sum-${n}`);
+  if(s){ s.textContent = summary; }
+  updateProgress();
+}
+
+function updateProgress() {
+  for(let i=0;i<7;i++){
+    const p = $(`prog-${i}`);
+    const card = $(`card-${i}`);
+    if(!card) continue;
+    p.className = 'prog-step';
+    if(card.classList.contains('completed')) p.classList.add('done');
+    else if(i===currentStep)                 p.classList.add('active');
+  }
+}
+
+/* ---- GID ---- */
+inpGid.addEventListener('input',()=>{
+  $('btn-gid-next').disabled = inpGid.value.trim().length < 2;
+});
+function confirmGID(){
+  if(!inpGid.value.trim()) return;
+  markDone(0, inpGid.value.trim());
+  unlockStep(1);
+}
+
+/* ---- INSURER ---- */
+selInsurer.addEventListener('change',()=>{
+  const ins = selInsurer.value;
+  if(!ins) return;
+  markDone(1, ins);
+  selPlan.innerHTML='<option value="">— select —</option>'+
+    [...new Set(rows.filter(r=>r.insurer===ins).map(r=>r.plan))].sort()
+    .map(p=>`<option value="${p}">${p}</option>`).join('');
+  unlockStep(2);
+});
+
+/* ---- PLAN ---- */
+selPlan.addEventListener('change',()=>{
+  const plan=selPlan.value; if(!plan) return;
+  markDone(2, plan.length>30 ? plan.substring(0,28)+'…' : plan);
+  const ins=selInsurer.value;
+  const ppts=[...new Set(rows.filter(r=>r.insurer===ins&&r.plan===plan).map(r=>r.ppt))];
+  selPpt.innerHTML='<option value="">— select —</option>'+
+    ppts.map(p=>`<option value="${p}">${p||'(all)'}</option>`).join('');
+  unlockStep(3);
+});
+
+/* ---- PPT ---- */
+selPpt.addEventListener('change',()=>{
+  const ppt=selPpt.value; if(!ppt) return;
+  markDone(3, ppt);
+  const ins=selInsurer.value, plan=selPlan.value;
+  const freqs=[...new Set(rows.filter(r=>r.insurer===ins&&r.plan===plan&&r.ppt===ppt).map(r=>r.freq))];
+  selFreq.innerHTML='<option value="">— select —</option>'+
+    freqs.map(f=>`<option value="${f}">${f}</option>`).join('');
+  if(freqs.length===1){
+    selFreq.value=freqs[0];
+    markDone(4,freqs[0]);
+    unlockStep(5); // skip to rate step
+    updateOnlineBtn();
+    // still show freq card as done
+    $('card-4').classList.remove('locked');
+    $('card-4').classList.add('completed');
+  } else {
+    unlockStep(4);
+  }
+});
+
+/* ---- FREQUENCY ---- */
+selFreq.addEventListener('change',()=>{
+  const freq=selFreq.value; if(!freq) return;
+  markDone(4, freq);
+  updateOnlineBtn();
+  unlockStep(5);
+});
+
+/* ---- RATE TYPE ---- */
+function updateOnlineBtn(){
+  const ins=selInsurer.value, plan=selPlan.value, ppt=selPpt.value, freq=selFreq.value;
+  const match=rows.find(r=>r.insurer===ins&&r.plan===plan&&r.ppt===ppt&&r.freq===freq);
+  const avail = match&&match.onlineAvail;
+  $('btn-online').classList.toggle('unavailable',!avail);
+  if(!avail && rateMode==='online') setRateMode('offline');
+  // Auto-advance rate step after short pause if only one option available
+  if(!avail) {
+    setTimeout(()=>{
+      if(!$('card-5').classList.contains('completed')){
+        markDone(5,'Offline');
+        unlockStep(6);
+      }
+    },600);
+  }
+}
+
+function setRateMode(mode){
+  rateMode=mode;
+  $('btn-offline').classList.toggle('active',mode==='offline');
+  $('btn-online').classList.toggle('active', mode==='online');
+}
+
+// Clicking a rate button also advances
+$('btn-offline').addEventListener('click',()=>{
+  setTimeout(()=>{ markDone(5,'Offline'); unlockStep(6); },150);
+});
+$('btn-online').addEventListener('click',()=>{
+  setTimeout(()=>{ markDone(5,'Online');  unlockStep(6); },150);
+});
+
+/* ---- PREMIUM ---- */
+inpPremium.addEventListener('input',()=>{
+  $('btn-calc').disabled = !(parseFloat(inpPremium.value)>0);
+});
+
+/* ---- CALCULATE ---- */
+function calculate(){
+  const ins=selInsurer.value, plan=selPlan.value, ppt=selPpt.value,
+        freq=selFreq.value, premium=parseFloat(inpPremium.value);
+  if(!ins||!plan||!premium) return;
+
+  const match=rows.find(r=>r.insurer===ins&&r.plan===plan&&r.ppt===ppt&&r.freq===freq);
+  if(!match){ alert('No matching rate found.'); return; }
+
+  const useOnline=(rateMode==='online')&&match.onlineAvail;
+  const fyc  = useOnline?match.fyc_on :match.fyc_off;
+  const syc  = useOnline?match.syc_on :match.syc_off;
+  const total= useOnline?match.tot_on :match.tot_off;
+
+  const fycAmt=premium*fyc/100, sycAmt=premium*syc/100, totalAmt=premium*total/100;
+
+  $('r-plan-type').textContent = match.planType||'—';
+  const badge=$('r-rate-mode-badge');
+  if(useOnline){
+    badge.textContent='Online rate';
+    badge.style.cssText='background:#d1fae5;color:#059669;border:1px solid #6ee7b7;';
+  } else {
+    badge.textContent='Offline rate';
+    badge.style.cssText='background:#fff;color:var(--brand);border:1px solid #93c5fd;';
+  }
+  $('r-fyc-pct').textContent=fyc+'%';    $('r-fyc-amt').textContent=fmt(fycAmt);
+  $('r-syc-pct').textContent=syc+'%';    $('r-syc-amt').textContent=fmt(sycAmt);
+  $('r-tot-pct').textContent=total+'%';  $('r-tot-amt').textContent=fmt(totalAmt);
+  $('r-premium-val').textContent=fmt(premium);
+  $('r-fyc-rate').textContent=fyc;   $('r-fyc-calc').textContent=fmt(fycAmt);
+  $('r-syc-rate').textContent=syc;   $('r-syc-calc').textContent=fmt(sycAmt);
+  $('r-total-calc').textContent=fmt(totalAmt);
+
+  markDone(6, fmt(premium));
+  $('result').style.display='block';
+  $('btn-reset').style.display='flex';
+  setTimeout(()=>$('result').scrollIntoView({behavior:'smooth',block:'nearest'}),100);
+
+  logToSheet({ gid:inpGid.value.trim(), insurer:ins, plan, planType:match.planType,
+    ppt, freq, rateType:useOnline?'Online':'Offline', premium,
+    fyc, fycAmt, syc, sycAmt, total, totalAmt });
+}
+
+/* ---- LOG TO GOOGLE SHEET ---- */
+async function logToSheet(d){
+  const ss = $('save-status');
+  if(!APPS_SCRIPT_URL){ 
+    ss.textContent='⚠ Logging not configured yet (paste Apps Script URL in code)';
+    ss.className=''; ss.style.cssText='font-size:11px;color:var(--text-3);text-align:center;margin-top:8px;display:block;';
+    return; 
+  }
+  try {
+    const params = new URLSearchParams({
+      timestamp: new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),
+      gid:       d.gid,
+      insurer:   d.insurer,
+      plan:      d.plan,
+      planType:  d.planType||'',
+      ppt:       d.ppt,
+      freq:      d.freq,
+      rateType:  d.rateType,
+      premium:   Math.round(d.premium),
+      fycPct:    d.fyc,    fycAmt:   Math.round(d.fycAmt),
+      sycPct:    d.syc,    sycAmt:   Math.round(d.sycAmt),
+      totalPct:  d.total,  totalAmt: Math.round(d.totalAmt),
+    });
+    await fetch(`${APPS_SCRIPT_URL}?${params}`, {method:'GET',mode:'no-cors'});
+    ss.textContent='✓ Logged successfully';
+    ss.className='ok'; ss.style.display='block';
+  } catch(e){
+    ss.textContent='Could not log — check network';
+    ss.className='err'; ss.style.display='block';
+  }
+}
+
+/* ---- RESET ---- */
+function resetAll(){
+  // Reset inputs
+  inpGid.value=''; inpPremium.value='';
+  selInsurer.value=''; selPlan.value=''; selPpt.value=''; selFreq.value='';
+  rateMode='offline';
+  $('btn-offline').classList.add('active');
+  $('btn-online').classList.remove('active');
+  $('btn-online').classList.add('unavailable');
+  // Reset cards
+  for(let i=0;i<7;i++){
+    const c=$(`card-${i}`);
+    c.classList.remove('completed');
+    if(i>0) c.classList.add('locked');
+    const s=$(`sum-${i}`);
+    if(s) s.textContent='';
+  }
+  $('btn-gid-next').disabled=true;
+  $('btn-calc').disabled=true;
+  $('result').style.display='none';
+  $('btn-reset').style.display='none';
+  $('save-status').style.display='none';
+  currentStep=0;
+  updateProgress();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---- PDF DOWNLOAD ---- */
+function downloadPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+
+  const offlineRows = rows.map(r=>[
+    r.insurer, r.plan, r.planType, '', r.ppt, r.freq,
+    r.fyc_off+'%', r.syc_off+'%', r.tot_off+'%'
+  ]);
+  const onlineRows  = rows.filter(r=>r.onlineAvail).map(r=>[
+    r.insurer, r.plan, r.planType, '', r.ppt, r.freq,
+    r.fyc_on+'%', r.syc_on+'%', r.tot_on+'%'
+  ]);
+
+  const cols = ['Insurer','Plan Name','Plan Type','EMI','PPT/PT','Plan Frequency','FYC %','SYC %','Total %'];
+
+  // PAGE 1 — Offline
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('Rate Grid — Offline Rates', 14, 16);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}`, 14, 22);
+
+  doc.autoTable({
+    head:[cols], body:offlineRows,
+    startY:28,
+    styles:{ fontSize:7, cellPadding:2, font:'helvetica' },
+    headStyles:{ fillColor:[26,86,219], textColor:255, fontStyle:'bold', fontSize:7.5 },
+    alternateRowStyles:{ fillColor:[245,247,250] },
+    columnStyles:{ 1:{cellWidth:55}, 0:{cellWidth:28} },
+    margin:{ left:8, right:8 },
+    didParseCell: data => {
+      if(data.section==='body'){
+        const tot=parseFloat(data.row.raw[8]);
+        if(!isNaN(tot)&&tot>=40){ data.cell.styles.textColor=[5,150,105]; data.cell.styles.fontStyle='bold'; }
+      }
+    }
+  });
+
+  // PAGE 2 — Online
+  if(onlineRows.length>0){
+    doc.addPage();
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('Rate Grid — Online Rates', 14, 16);
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text(`Plans with online rates: ${onlineRows.length}`, 14, 22);
+
+    doc.autoTable({
+      head:[cols], body:onlineRows,
+      startY:28,
+      styles:{ fontSize:7, cellPadding:2, font:'helvetica' },
+      headStyles:{ fillColor:[5,150,105], textColor:255, fontStyle:'bold', fontSize:7.5 },
+      alternateRowStyles:{ fillColor:[240,253,244] },
+      columnStyles:{ 1:{cellWidth:55}, 0:{cellWidth:28} },
+      margin:{ left:8, right:8 },
+    });
+  }
+
+  doc.save(`rate-grid-${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+// Init
+inpGid.addEventListener('keydown',e=>{ if(e.key==='Enter') confirmGID(); });
+updateProgress();
+loadData();
+</script>
+</body>
+</html>
