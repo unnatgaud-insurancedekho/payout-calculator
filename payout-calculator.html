@@ -727,65 +727,6 @@ function resetAll(){
 function downloadPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-
-  // PAGE 1 — COVER & GUIDE
-  doc.setFontSize(20); doc.setFont('helvetica','bold');
-  doc.text('Insurance Payout Rate Guide', 20, 30);
-
-  doc.setFontSize(11); doc.setFont('helvetica','normal');
-  doc.text('Generated: '+new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}), 20, 42);
-
-  doc.setFontSize(12); doc.setFont('helvetica','bold');
-  doc.text('About This Document', 20, 58);
-
-  doc.setFontSize(10); doc.setFont('helvetica','normal');
-  const aboutText = [
-    'This PDF contains comprehensive payout rates for all available insurance plans.',
-    'It includes both offline and online rate options organized across multiple pages.',
-    'Use this guide to quickly reference commission percentages for any plan-insurer combination.'
-  ];
-  let yPos = 66;
-  aboutText.forEach(line => {
-    doc.text(line, 20, yPos);
-    yPos += 6;
-  });
-
-  doc.setFontSize(12); doc.setFont('helvetica','bold');
-  doc.text('How to Read the Tables', 20, yPos+8);
-
-  doc.setFontSize(9); doc.setFont('helvetica','normal');
-  yPos += 14;
-  const guideLines = [
-    '• Insurer: Insurance company name',
-    '• Plan Name: Product name or plan identifier',
-    '• Plan Type: Classification (Health, Term, etc.)',
-    '• PPT/PT: Premium Payment Term or Premium Type',
-    '• Plan Frequency: How often the premium is paid (Monthly, Annual, etc.)',
-    '• FYC %: First Year Commission percentage',
-    '• SYC %: Subsequent Year Commission percentage',
-    '• Total %: Combined commission percentage (FYC + SYC)',
-    '',
-    '• Rows highlighted with rates ≥40% indicate high-commission products',
-    '• Page 1 shows all rates for offline distribution',
-    '• Page 2 (if present) shows only plans available for online distribution'
-  ];
-  guideLines.forEach(line => {
-    doc.text(line, 20, yPos);
-    yPos += 5.5;
-  });
-
-  doc.setFontSize(10); doc.setFont('helvetica','bold');
-  doc.text('Navigation:', 20, yPos+6);
-  doc.setTextColor(51, 102, 204);
-  doc.textWithLink('Jump to Offline Rates', 60, yPos+6, { pageNumber: 2 });
-  doc.setTextColor(0, 0, 0);
-  if(rows.filter(r=>r.onlineAvail).length>0){
-    doc.setTextColor(51, 102, 204);
-    doc.textWithLink('Jump to Online Rates', 110, yPos+6, { pageNumber: 3 });
-    doc.setTextColor(0, 0, 0);
-  }
 
   const offlineRows = rows.map(r=>[
     r.insurer, r.plan, r.planType, r.ppt, r.freq,
@@ -798,62 +739,66 @@ function downloadPDF(){
 
   const cols = ['Insurer','Plan Name','Plan Type','PPT/PT','Frequency','FYC %','SYC %','Total %'];
 
-  // PAGE 2 — Offline
-  doc.addPage();
-  doc.setFontSize(14); doc.setFont('helvetica','bold');
-  doc.text('Offline Rates', 14, 16);
-  doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.text(`All ${offlineRows.length} available plans`, 14, 22);
+  // PAGE 1 — Offline Rates
+  doc.setFontSize(13); doc.setFont('helvetica','bold');
+  doc.text('Offline Rates', 10, 14);
 
   doc.autoTable({
     head:[cols], body:offlineRows,
-    startY:28,
+    startY:20,
     styles:{ fontSize:8, cellPadding:3, font:'helvetica', textColor:50, halign:'left', valign:'middle' },
-    headStyles:{ fillColor:[216,132,106], textColor:255, fontStyle:'bold', fontSize:8.5, halign:'center' },
-    alternateRowStyles:{ fillColor:[252,252,252] },
+    headStyles:{ fillColor:[216,132,106], textColor:255, fontStyle:'bold', fontSize:8, halign:'center', padding:4 },
+    alternateRowStyles:{ fillColor:[254,254,254] },
     columnStyles:{
-      0:{cellWidth:25},  // Insurer
-      1:{cellWidth:50},  // Plan Name
-      2:{cellWidth:20},  // Plan Type
-      3:{cellWidth:15},  // PPT/PT
-      4:{cellWidth:22},  // Frequency
-      5:{cellWidth:14, halign:'center'},  // FYC %
-      6:{cellWidth:14, halign:'center'},  // SYC %
-      7:{cellWidth:14, halign:'center'}   // Total %
+      0:{cellWidth:22, halign:'left'},        // Insurer
+      1:{cellWidth:85, halign:'left'},        // Plan Name (wider)
+      2:{cellWidth:28, halign:'left'},        // Plan Type
+      3:{cellWidth:30, halign:'left'},        // PPT/PT (wider)
+      4:{cellWidth:28, halign:'left'},        // Frequency
+      5:{cellWidth:22, halign:'center'},      // FYC %
+      6:{cellWidth:22, halign:'center'},      // SYC %
+      7:{cellWidth:23, halign:'center'}       // Total %
     },
-    margin:{ left:6, right:6, top:0, bottom:0 },
+    margin:{ left:5, right:5 },
+    tableLineColor:[240,240,240],
+    tableLineWidth:0.1,
     didParseCell: data => {
-      if(data.section==='head'){ data.cell.styles.halign = 'center'; }
+      // Clean styling - no special highlighting
+      if(data.section==='head'){
+        data.cell.styles.textColor = 255;
+      }
     }
   });
 
-  // PAGE 3 — Online (if exists)
+  // PAGE 2 — Online Rates (if available)
   if(onlineRows.length>0){
     doc.addPage();
-    doc.setFontSize(14); doc.setFont('helvetica','bold');
-    doc.text('Online Rates', 14, 16);
-    doc.setFontSize(9); doc.setFont('helvetica','normal');
-    doc.text(`Plans with online rates: ${onlineRows.length}`, 14, 22);
+    doc.setFontSize(13); doc.setFont('helvetica','bold');
+    doc.text('Online Rates', 10, 14);
 
     doc.autoTable({
       head:[cols], body:onlineRows,
-      startY:28,
+      startY:20,
       styles:{ fontSize:8, cellPadding:3, font:'helvetica', textColor:50, halign:'left', valign:'middle' },
-      headStyles:{ fillColor:[76,175,80], textColor:255, fontStyle:'bold', fontSize:8.5, halign:'center' },
-      alternateRowStyles:{ fillColor:[252,252,252] },
+      headStyles:{ fillColor:[76,175,80], textColor:255, fontStyle:'bold', fontSize:8, halign:'center', padding:4 },
+      alternateRowStyles:{ fillColor:[254,254,254] },
       columnStyles:{
-        0:{cellWidth:25},  // Insurer
-        1:{cellWidth:50},  // Plan Name
-        2:{cellWidth:20},  // Plan Type
-        3:{cellWidth:15},  // PPT/PT
-        4:{cellWidth:22},  // Frequency
-        5:{cellWidth:14, halign:'center'},  // FYC %
-        6:{cellWidth:14, halign:'center'},  // SYC %
-        7:{cellWidth:14, halign:'center'}   // Total %
+        0:{cellWidth:22, halign:'left'},      // Insurer
+        1:{cellWidth:85, halign:'left'},      // Plan Name (wider)
+        2:{cellWidth:28, halign:'left'},      // Plan Type
+        3:{cellWidth:30, halign:'left'},      // PPT/PT (wider)
+        4:{cellWidth:28, halign:'left'},      // Frequency
+        5:{cellWidth:22, halign:'center'},    // FYC %
+        6:{cellWidth:22, halign:'center'},    // SYC %
+        7:{cellWidth:23, halign:'center'}     // Total %
       },
-      margin:{ left:6, right:6, top:0, bottom:0 },
+      margin:{ left:5, right:5 },
+      tableLineColor:[240,240,240],
+      tableLineWidth:0.1,
       didParseCell: data => {
-        if(data.section==='head'){ data.cell.styles.halign = 'center'; }
+        if(data.section==='head'){
+          data.cell.styles.textColor = 255;
+        }
       }
     });
   }
