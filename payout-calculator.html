@@ -733,29 +733,22 @@ function downloadPDF(){
 
   // Exact column width percentages
   const colWidths = {
-    insurer: availableWidth * 0.12,      // 12%
-    planName: availableWidth * 0.34,     // 34%
-    planType: availableWidth * 0.11,     // 11%
-    pptPt: availableWidth * 0.17,        // 17%
-    frequency: availableWidth * 0.09,    // 9%
-    fycPct: availableWidth * 0.06,       // 6%
+    insurer: availableWidth * 0.11,      // 11%
+    channel: availableWidth * 0.08,      // 8%
+    planName: availableWidth * 0.32,     // 32%
+    planType: availableWidth * 0.10,     // 10%
+    pptPt: availableWidth * 0.16,        // 16%
+    frequency: availableWidth * 0.08,    // 8%
+    fycPct: availableWidth * 0.05,       // 5%
     sycPct: availableWidth * 0.05,       // 5%
-    totalPct: availableWidth * 0.06      // 6%
+    totalPct: availableWidth * 0.05      // 5%
   };
 
-  // Helper function to add suffix safely
-  function addSuffixToPlanName(planName, suffix) {
-    const planLower = planName.toLowerCase();
-    if(planLower.includes(suffix.toLowerCase())){
-      return planName; // Already contains the suffix
-    }
-    return planName + ' ' + suffix;
-  }
-
-  // Create rows with appropriate suffix
+  // Create rows with Channel column - use original plan names without suffix
   const offlineRows = rows.map(r=>[
     r.insurer,
-    addSuffixToPlanName(r.plan, 'Offline'),
+    'Offline',
+    r.plan,
     r.planType,
     r.ppt,
     r.freq,
@@ -766,7 +759,8 @@ function downloadPDF(){
 
   const onlineRows = rows.filter(r=>r.onlineAvail).map(r=>[
     r.insurer,
-    addSuffixToPlanName(r.plan, 'Online'),
+    'Online',
+    r.plan,
     r.planType,
     r.ppt,
     r.freq,
@@ -775,7 +769,7 @@ function downloadPDF(){
     r.tot_on+'%'
   ]);
 
-  const cols = ['Insurer','Plan Name','Plan Type','PPT/PT','Frequency','FYC %','SYC %','Total %'];
+  const cols = ['Insurer','Channel','Plan Name','Plan Type','PPT/PT','Frequency','FYC %','SYC %','Total %'];
 
   // PAGE 1 — Offline Rates
   doc.setFontSize(13); doc.setFont('helvetica','bold');
@@ -789,13 +783,14 @@ function downloadPDF(){
     alternateRowStyles:{ fillColor:[254,254,254] },
     columnStyles:{
       0:{cellWidth:colWidths.insurer, halign:'left'},
-      1:{cellWidth:colWidths.planName, halign:'left'},
-      2:{cellWidth:colWidths.planType, halign:'left'},
-      3:{cellWidth:colWidths.pptPt, halign:'left'},
-      4:{cellWidth:colWidths.frequency, halign:'left'},
-      5:{cellWidth:colWidths.fycPct, halign:'center'},
-      6:{cellWidth:colWidths.sycPct, halign:'center'},
-      7:{cellWidth:colWidths.totalPct, halign:'center'}
+      1:{cellWidth:colWidths.channel, halign:'center'},
+      2:{cellWidth:colWidths.planName, halign:'left'},
+      3:{cellWidth:colWidths.planType, halign:'left'},
+      4:{cellWidth:colWidths.pptPt, halign:'left'},
+      5:{cellWidth:colWidths.frequency, halign:'left'},
+      6:{cellWidth:colWidths.fycPct, halign:'center'},
+      7:{cellWidth:colWidths.sycPct, halign:'center'},
+      8:{cellWidth:colWidths.totalPct, halign:'center'}
     },
     margin:{ left:4.5, right:4.5 },
     tableLineColor:[240,240,240],
@@ -821,13 +816,14 @@ function downloadPDF(){
       alternateRowStyles:{ fillColor:[254,254,254] },
       columnStyles:{
         0:{cellWidth:colWidths.insurer, halign:'left'},
-        1:{cellWidth:colWidths.planName, halign:'left'},
-        2:{cellWidth:colWidths.planType, halign:'left'},
-        3:{cellWidth:colWidths.pptPt, halign:'left'},
-        4:{cellWidth:colWidths.frequency, halign:'left'},
-        5:{cellWidth:colWidths.fycPct, halign:'center'},
-        6:{cellWidth:colWidths.sycPct, halign:'center'},
-        7:{cellWidth:colWidths.totalPct, halign:'center'}
+        1:{cellWidth:colWidths.channel, halign:'center'},
+        2:{cellWidth:colWidths.planName, halign:'left'},
+        3:{cellWidth:colWidths.planType, halign:'left'},
+        4:{cellWidth:colWidths.pptPt, halign:'left'},
+        5:{cellWidth:colWidths.frequency, halign:'left'},
+        6:{cellWidth:colWidths.fycPct, halign:'center'},
+        7:{cellWidth:colWidths.sycPct, halign:'center'},
+        8:{cellWidth:colWidths.totalPct, halign:'center'}
       },
       margin:{ left:4.5, right:4.5 },
       tableLineColor:[240,240,240],
