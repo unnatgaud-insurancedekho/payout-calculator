@@ -73,34 +73,6 @@ main { max-width: 100%; width: 100%; margin: 0; padding: 16px; }
   main { max-width: 540px; margin: 0 auto; padding: 24px 20px; }
 }
 
-/* PROGRESS STRIP */
-.progress-strip {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin-bottom: 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.prog-step {
-  flex: 1;
-  padding: 12px 4px;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  color: var(--text-3);
-  border-right: 1px solid var(--border);
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-.prog-step:last-child { border-right: none; }
-.prog-step.active  { background: var(--brand-light); color: var(--brand); }
-.prog-step.done    { background: var(--brand-light); color: var(--brand); font-weight: 700; }
-
 /* STEP CARDS */
 .step-card {
   background: var(--surface);
@@ -296,17 +268,6 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
 </header>
 
 <main>
-
-  <!-- PROGRESS -->
-  <div class="progress-strip">
-    <div class="prog-step" id="prog-0">GID</div>
-    <div class="prog-step" id="prog-1">Insurer</div>
-    <div class="prog-step" id="prog-2">Plan</div>
-    <div class="prog-step" id="prog-3">PPT/PT</div>
-    <div class="prog-step" id="prog-4">Freq</div>
-    <div class="prog-step" id="prog-5">Rate</div>
-    <div class="prog-step" id="prog-6">Premium</div>
-  </div>
 
   <!-- STEP 1: GID -->
   <div class="step-card active" id="card-0">
@@ -564,7 +525,7 @@ function updateProgress() {
   for(let i=0;i<7;i++){
     const p = $(`prog-${i}`);
     const card = $(`card-${i}`);
-    if(!card) continue;
+    if(!card || !p) continue;
     p.className = 'prog-step';
     if(card.classList.contains('completed')) p.classList.add('done');
     else if(i===currentStep)                 p.classList.add('active');
@@ -775,55 +736,127 @@ function resetAll(){
 function downloadPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // PAGE 1 — COVER & GUIDE
+  doc.setFontSize(20); doc.setFont('helvetica','bold');
+  doc.text('Insurance Payout Rate Guide', 20, 30);
+
+  doc.setFontSize(11); doc.setFont('helvetica','normal');
+  doc.text('Generated: '+new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}), 20, 42);
+
+  doc.setFontSize(12); doc.setFont('helvetica','bold');
+  doc.text('About This Document', 20, 58);
+
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  const aboutText = [
+    'This PDF contains comprehensive payout rates for all available insurance plans.',
+    'It includes both offline and online rate options organized across multiple pages.',
+    'Use this guide to quickly reference commission percentages for any plan-insurer combination.'
+  ];
+  let yPos = 66;
+  aboutText.forEach(line => {
+    doc.text(line, 20, yPos);
+    yPos += 6;
+  });
+
+  doc.setFontSize(12); doc.setFont('helvetica','bold');
+  doc.text('How to Read the Tables', 20, yPos+8);
+
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  yPos += 14;
+  const guideLines = [
+    '• Insurer: Insurance company name',
+    '• Plan Name: Product name or plan identifier',
+    '• Plan Type: Classification (Health, Term, etc.)',
+    '• PPT/PT: Premium Payment Term or Premium Type',
+    '• Plan Frequency: How often the premium is paid (Monthly, Annual, etc.)',
+    '• FYC %: First Year Commission percentage',
+    '• SYC %: Subsequent Year Commission percentage',
+    '• Total %: Combined commission percentage (FYC + SYC)',
+    '',
+    '• Rows highlighted with rates ≥40% indicate high-commission products',
+    '• Page 1 shows all rates for offline distribution',
+    '• Page 2 (if present) shows only plans available for online distribution'
+  ];
+  guideLines.forEach(line => {
+    doc.text(line, 20, yPos);
+    yPos += 5.5;
+  });
+
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('Navigation:', 20, yPos+6);
+  doc.setTextColor(51, 102, 204);
+  doc.textWithLink('Jump to Offline Rates', 60, yPos+6, { pageNumber: 2 });
+  doc.setTextColor(0, 0, 0);
+  if(rows.filter(r=>r.onlineAvail).length>0){
+    doc.setTextColor(51, 102, 204);
+    doc.textWithLink('Jump to Online Rates', 110, yPos+6, { pageNumber: 3 });
+    doc.setTextColor(0, 0, 0);
+  }
 
   const offlineRows = rows.map(r=>[
-    r.insurer, r.plan, r.planType, '', r.ppt, r.freq,
+    r.insurer, r.plan, r.planType, r.ppt, r.freq,
     r.fyc_off+'%', r.syc_off+'%', r.tot_off+'%'
   ]);
   const onlineRows  = rows.filter(r=>r.onlineAvail).map(r=>[
-    r.insurer, r.plan, r.planType, '', r.ppt, r.freq,
+    r.insurer, r.plan, r.planType, r.ppt, r.freq,
     r.fyc_on+'%', r.syc_on+'%', r.tot_on+'%'
   ]);
 
-  const cols = ['Insurer','Plan Name','Plan Type','EMI','PPT/PT','Plan Frequency','FYC %','SYC %','Total %'];
+  const cols = ['Insurer','Plan Name','Plan Type','PPT/PT','Frequency','FYC %','SYC %','Total %'];
 
-  // PAGE 1 — Offline
+  // PAGE 2 — Offline
+  doc.addPage();
   doc.setFontSize(14); doc.setFont('helvetica','bold');
-  doc.text('Rate Grid — Offline Rates', 14, 16);
+  doc.text('Offline Rates', 14, 16);
   doc.setFontSize(9); doc.setFont('helvetica','normal');
-  doc.text(`Generated: ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}`, 14, 22);
+  doc.text(`All ${offlineRows.length} available plans`, 14, 22);
 
   doc.autoTable({
     head:[cols], body:offlineRows,
     startY:28,
-    styles:{ fontSize:7, cellPadding:2, font:'helvetica' },
-    headStyles:{ fillColor:[216,132,106], textColor:255, fontStyle:'bold', fontSize:7.5 },
-    alternateRowStyles:{ fillColor:[250,250,250] },
-    columnStyles:{ 1:{cellWidth:55}, 0:{cellWidth:28} },
+    styles:{ fontSize:7.5, cellPadding:2.5, font:'helvetica', textColor:50 },
+    headStyles:{ fillColor:[216,132,106], textColor:255, fontStyle:'bold', fontSize:8 },
+    alternateRowStyles:{ fillColor:[252,252,252] },
+    columnStyles:{
+      0:{cellWidth:22},  // Insurer
+      1:{cellWidth:40},  // Plan Name
+      2:{cellWidth:18},  // Plan Type
+      3:{cellWidth:14},  // PPT/PT
+      4:{cellWidth:18},  // Frequency
+      5:{cellWidth:12},  // FYC %
+      6:{cellWidth:12},  // SYC %
+      7:{cellWidth:12}   // Total %
+    },
     margin:{ left:8, right:8 },
-    didParseCell: data => {
-      if(data.section==='body'){
-        const tot=parseFloat(data.row.raw[8]);
-        if(!isNaN(tot)&&tot>=40){ data.cell.styles.textColor=[76,175,80]; data.cell.styles.fontStyle='bold'; }
-      }
-    }
   });
 
-  // PAGE 2 — Online
+  // PAGE 3 — Online (if exists)
   if(onlineRows.length>0){
     doc.addPage();
     doc.setFontSize(14); doc.setFont('helvetica','bold');
-    doc.text('Rate Grid — Online Rates', 14, 16);
+    doc.text('Online Rates', 14, 16);
     doc.setFontSize(9); doc.setFont('helvetica','normal');
     doc.text(`Plans with online rates: ${onlineRows.length}`, 14, 22);
 
     doc.autoTable({
       head:[cols], body:onlineRows,
       startY:28,
-      styles:{ fontSize:7, cellPadding:2, font:'helvetica' },
-      headStyles:{ fillColor:[76,175,80], textColor:255, fontStyle:'bold', fontSize:7.5 },
-      alternateRowStyles:{ fillColor:[240,253,244] },
-      columnStyles:{ 1:{cellWidth:55}, 0:{cellWidth:28} },
+      styles:{ fontSize:7.5, cellPadding:2.5, font:'helvetica', textColor:50 },
+      headStyles:{ fillColor:[76,175,80], textColor:255, fontStyle:'bold', fontSize:8 },
+      alternateRowStyles:{ fillColor:[252,252,252] },
+      columnStyles:{
+        0:{cellWidth:22},  // Insurer
+        1:{cellWidth:40},  // Plan Name
+        2:{cellWidth:18},  // Plan Type
+        3:{cellWidth:14},  // PPT/PT
+        4:{cellWidth:18},  // Frequency
+        5:{cellWidth:12},  // FYC %
+        6:{cellWidth:12},  // SYC %
+        7:{cellWidth:12}   // Total %
+      },
       margin:{ left:8, right:8 },
     });
   }
