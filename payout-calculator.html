@@ -728,42 +728,79 @@ function downloadPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
 
+  // Calculate available width: landscape A4 = 297mm, with 4mm margins = 289mm available
+  const availableWidth = 289;
+
+  // Exact column width percentages
+  const colWidths = {
+    insurer: availableWidth * 0.12,      // 12%
+    planName: availableWidth * 0.34,     // 34%
+    planType: availableWidth * 0.11,     // 11%
+    pptPt: availableWidth * 0.17,        // 17%
+    frequency: availableWidth * 0.09,    // 9%
+    fycPct: availableWidth * 0.06,       // 6%
+    sycPct: availableWidth * 0.05,       // 5%
+    totalPct: availableWidth * 0.06      // 6%
+  };
+
+  // Helper function to add suffix safely
+  function addSuffixToPlanName(planName, suffix) {
+    const planLower = planName.toLowerCase();
+    if(planLower.includes(suffix.toLowerCase())){
+      return planName; // Already contains the suffix
+    }
+    return planName + ' ' + suffix;
+  }
+
+  // Create rows with appropriate suffix
   const offlineRows = rows.map(r=>[
-    r.insurer, r.plan, r.planType, r.ppt, r.freq,
-    r.fyc_off+'%', r.syc_off+'%', r.tot_off+'%'
+    r.insurer,
+    addSuffixToPlanName(r.plan, 'Offline'),
+    r.planType,
+    r.ppt,
+    r.freq,
+    r.fyc_off+'%',
+    r.syc_off+'%',
+    r.tot_off+'%'
   ]);
-  const onlineRows  = rows.filter(r=>r.onlineAvail).map(r=>[
-    r.insurer, r.plan, r.planType, r.ppt, r.freq,
-    r.fyc_on+'%', r.syc_on+'%', r.tot_on+'%'
+
+  const onlineRows = rows.filter(r=>r.onlineAvail).map(r=>[
+    r.insurer,
+    addSuffixToPlanName(r.plan, 'Online'),
+    r.planType,
+    r.ppt,
+    r.freq,
+    r.fyc_on+'%',
+    r.syc_on+'%',
+    r.tot_on+'%'
   ]);
 
   const cols = ['Insurer','Plan Name','Plan Type','PPT/PT','Frequency','FYC %','SYC %','Total %'];
 
   // PAGE 1 — Offline Rates
   doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text('Offline Rates', 10, 14);
+  doc.text('Offline Rates', 4.5, 14);
 
   doc.autoTable({
     head:[cols], body:offlineRows,
     startY:20,
-    styles:{ fontSize:8, cellPadding:3, font:'helvetica', textColor:50, halign:'left', valign:'middle' },
-    headStyles:{ fillColor:[216,132,106], textColor:255, fontStyle:'bold', fontSize:8, halign:'center', padding:4 },
+    styles:{ fontSize:8, cellPadding:2.5, font:'helvetica', textColor:50, valign:'middle' },
+    headStyles:{ fillColor:[216,132,106], textColor:255, fontStyle:'bold', fontSize:8, halign:'center', padding:3 },
     alternateRowStyles:{ fillColor:[254,254,254] },
     columnStyles:{
-      0:{cellWidth:22, halign:'left'},        // Insurer
-      1:{cellWidth:85, halign:'left'},        // Plan Name (wider)
-      2:{cellWidth:28, halign:'left'},        // Plan Type
-      3:{cellWidth:30, halign:'left'},        // PPT/PT (wider)
-      4:{cellWidth:28, halign:'left'},        // Frequency
-      5:{cellWidth:22, halign:'center'},      // FYC %
-      6:{cellWidth:22, halign:'center'},      // SYC %
-      7:{cellWidth:23, halign:'center'}       // Total %
+      0:{cellWidth:colWidths.insurer, halign:'left'},
+      1:{cellWidth:colWidths.planName, halign:'left'},
+      2:{cellWidth:colWidths.planType, halign:'left'},
+      3:{cellWidth:colWidths.pptPt, halign:'left'},
+      4:{cellWidth:colWidths.frequency, halign:'left'},
+      5:{cellWidth:colWidths.fycPct, halign:'center'},
+      6:{cellWidth:colWidths.sycPct, halign:'center'},
+      7:{cellWidth:colWidths.totalPct, halign:'center'}
     },
-    margin:{ left:5, right:5 },
+    margin:{ left:4.5, right:4.5 },
     tableLineColor:[240,240,240],
     tableLineWidth:0.1,
     didParseCell: data => {
-      // Clean styling - no special highlighting
       if(data.section==='head'){
         data.cell.styles.textColor = 255;
       }
@@ -774,25 +811,25 @@ function downloadPDF(){
   if(onlineRows.length>0){
     doc.addPage();
     doc.setFontSize(13); doc.setFont('helvetica','bold');
-    doc.text('Online Rates', 10, 14);
+    doc.text('Online Rates', 4.5, 14);
 
     doc.autoTable({
       head:[cols], body:onlineRows,
       startY:20,
-      styles:{ fontSize:8, cellPadding:3, font:'helvetica', textColor:50, halign:'left', valign:'middle' },
-      headStyles:{ fillColor:[76,175,80], textColor:255, fontStyle:'bold', fontSize:8, halign:'center', padding:4 },
+      styles:{ fontSize:8, cellPadding:2.5, font:'helvetica', textColor:50, valign:'middle' },
+      headStyles:{ fillColor:[76,175,80], textColor:255, fontStyle:'bold', fontSize:8, halign:'center', padding:3 },
       alternateRowStyles:{ fillColor:[254,254,254] },
       columnStyles:{
-        0:{cellWidth:22, halign:'left'},      // Insurer
-        1:{cellWidth:85, halign:'left'},      // Plan Name (wider)
-        2:{cellWidth:28, halign:'left'},      // Plan Type
-        3:{cellWidth:30, halign:'left'},      // PPT/PT (wider)
-        4:{cellWidth:28, halign:'left'},      // Frequency
-        5:{cellWidth:22, halign:'center'},    // FYC %
-        6:{cellWidth:22, halign:'center'},    // SYC %
-        7:{cellWidth:23, halign:'center'}     // Total %
+        0:{cellWidth:colWidths.insurer, halign:'left'},
+        1:{cellWidth:colWidths.planName, halign:'left'},
+        2:{cellWidth:colWidths.planType, halign:'left'},
+        3:{cellWidth:colWidths.pptPt, halign:'left'},
+        4:{cellWidth:colWidths.frequency, halign:'left'},
+        5:{cellWidth:colWidths.fycPct, halign:'center'},
+        6:{cellWidth:colWidths.sycPct, halign:'center'},
+        7:{cellWidth:colWidths.totalPct, halign:'center'}
       },
-      margin:{ left:5, right:5 },
+      margin:{ left:4.5, right:4.5 },
       tableLineColor:[240,240,240],
       tableLineWidth:0.1,
       didParseCell: data => {
