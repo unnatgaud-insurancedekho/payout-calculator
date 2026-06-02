@@ -744,75 +744,58 @@ function downloadPDF(){
     totalPct: availableWidth * 0.05      // 5%
   };
 
-  // Create rows with Channel column - use original plan names without suffix
-  const offlineRows = rows.map(r=>[
-    r.insurer,
-    'Offline',
-    r.plan,
-    r.planType,
-    r.ppt,
-    r.freq,
-    r.fyc_off+'%',
-    r.syc_off+'%',
-    r.tot_off+'%'
-  ]);
-
-  const onlineRows = rows.filter(r=>r.onlineAvail).map(r=>[
-    r.insurer,
-    'Online',
-    r.plan,
-    r.planType,
-    r.ppt,
-    r.freq,
-    r.fyc_on+'%',
-    r.syc_on+'%',
-    r.tot_on+'%'
-  ]);
-
   const cols = ['Insurer','Channel','Plan Name','Plan Type','PPT/PT','Frequency','FYC %','SYC %','Total %'];
 
-  // PAGE 1 — Offline Rates
-  doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text('Offline Rates', 4.5, 14);
+  // Group rows by insurer for offline rates
+  const offlineInsurers = [...new Set(rows.map(r => r.insurer))].sort();
+  const offlineGroups = offlineInsurers.map(insurer => ({
+    insurer,
+    channel: 'Offline',
+    rows: rows.filter(r => r.insurer === insurer).map(r => [
+      r.insurer, 'Offline', r.plan, r.planType, r.ppt, r.freq,
+      r.fyc_off+'%', r.syc_off+'%', r.tot_off+'%'
+    ]),
+    headingColor: [216,132,106]
+  }));
 
-  doc.autoTable({
-    head:[cols], body:offlineRows,
-    startY:20,
-    styles:{ fontSize:8, cellPadding:2.5, font:'helvetica', textColor:50, valign:'middle' },
-    headStyles:{ fillColor:[216,132,106], textColor:255, fontStyle:'bold', fontSize:8, halign:'center', padding:3 },
-    alternateRowStyles:{ fillColor:[254,254,254] },
-    columnStyles:{
-      0:{cellWidth:colWidths.insurer, halign:'left'},
-      1:{cellWidth:colWidths.channel, halign:'center'},
-      2:{cellWidth:colWidths.planName, halign:'left'},
-      3:{cellWidth:colWidths.planType, halign:'left'},
-      4:{cellWidth:colWidths.pptPt, halign:'left'},
-      5:{cellWidth:colWidths.frequency, halign:'left'},
-      6:{cellWidth:colWidths.fycPct, halign:'center'},
-      7:{cellWidth:colWidths.sycPct, halign:'center'},
-      8:{cellWidth:colWidths.totalPct, halign:'center'}
-    },
-    margin:{ left:4.5, right:4.5 },
-    tableLineColor:[240,240,240],
-    tableLineWidth:0.1,
-    didParseCell: data => {
-      if(data.section==='head'){
-        data.cell.styles.textColor = 255;
-      }
+  // Group rows by insurer for online rates
+  const onlineInsurers = [...new Set(rows.filter(r => r.onlineAvail).map(r => r.insurer))].sort();
+  const onlineGroups = onlineInsurers.map(insurer => ({
+    insurer,
+    channel: 'Online',
+    rows: rows.filter(r => r.insurer === insurer && r.onlineAvail).map(r => [
+      r.insurer, 'Online', r.plan, r.planType, r.ppt, r.freq,
+      r.fyc_on+'%', r.syc_on+'%', r.tot_on+'%'
+    ]),
+    headingColor: [76,175,80]
+  }));
+
+  // Combine all groups (offline first, then online)
+  const allGroups = [...offlineGroups, ...onlineGroups];
+
+  // Process each group
+  allGroups.forEach((group, groupIndex) => {
+    // Add new page if not the first group
+    if(groupIndex > 0){
+      doc.addPage();
     }
-  });
 
-  // PAGE 2 — Online Rates (if available)
-  if(onlineRows.length>0){
-    doc.addPage();
-    doc.setFontSize(13); doc.setFont('helvetica','bold');
-    doc.text('Online Rates', 4.5, 14);
+    // Add heading
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(50, 50, 50);
+    doc.text(`${group.insurer} - ${group.channel} Rates`, 4.5, 14);
 
+    // Reset text color for table
+    doc.setTextColor(50, 50, 50);
+
+    // Add table
     doc.autoTable({
-      head:[cols], body:onlineRows,
+      head:[cols],
+      body:group.rows,
       startY:20,
       styles:{ fontSize:8, cellPadding:2.5, font:'helvetica', textColor:50, valign:'middle' },
-      headStyles:{ fillColor:[76,175,80], textColor:255, fontStyle:'bold', fontSize:8, halign:'center', padding:3 },
+      headStyles:{ fillColor:group.headingColor, textColor:255, fontStyle:'bold', fontSize:8, halign:'center', padding:3 },
       alternateRowStyles:{ fillColor:[254,254,254] },
       columnStyles:{
         0:{cellWidth:colWidths.insurer, halign:'left'},
@@ -834,7 +817,7 @@ function downloadPDF(){
         }
       }
     });
-  }
+  });
 
   doc.save(`rate-grid-${new Date().toISOString().slice(0,10)}.pdf`);
 }
