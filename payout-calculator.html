@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-<title>Payout Calculator</title>
+<title>Life Insurance Payout Calculator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
@@ -49,6 +49,22 @@ header p  { font-size: 13px; color: var(--text-3); margin-top: 2px; }
 .dot.loading { background: #ff9800; animation: pulse 1s infinite; }
 .dot.error   { background: #f44336; }
 @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.5} }
+
+.status-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: none;
+  cursor: default;
+  flex-shrink: 0;
+}
+.status-btn.loading { background: #fff3cd; color: #856404; }
+.status-btn.ok { background: #d4edda; color: #155724; }
+.status-btn.error { background: #f8d7da; color: #721c24; }
 
 .btn-pdf {
   display: flex; align-items: center; gap: 6px;
@@ -256,14 +272,14 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
 
 <header>
   <div class="header-left">
-    <div id="hdr-dot" class="dot loading"></div>
+    <div id="hdr-status-btn" class="status-btn loading">Live</div>
     <div>
-      <h1>Payout Calculator</h1>
-      <p id="hdr-status">Loading rate data…</p>
+      <h1>Life Insurance Payout Calculator</h1>
+      <p id="hdr-status">Loading rates…</p>
     </div>
   </div>
   <button class="btn-pdf" id="btn-pdf" disabled onclick="downloadPDF()">
-    ⬇ Download Rate Grid (PDF)
+    ⬇ Download Grid PDF
   </button>
 </header>
 
@@ -449,7 +465,10 @@ function fmt(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
 function clean(s) { return (s||'').replace(/^"|"$/g,'').trim(); }
 
 function setStatus(msg, type) {
-  $('hdr-dot').className = 'dot'+(type==='ok'?'':type==='loading'?' loading':' error');
+  const btn = $('hdr-status-btn');
+  btn.className = 'status-btn' + (type==='ok'?'':type==='loading'?' loading':type==='error'?' error':'');
+  if(type==='ok') btn.textContent = 'Live';
+  else if(type==='error') btn.textContent = 'Not Live';
   $('hdr-status').textContent = msg;
 }
 
@@ -495,7 +514,7 @@ async function loadData() {
     selInsurer.innerHTML='<option value="">— select —</option>'+
       insurers.map(i=>`<option value="${i}">${i}</option>`).join('');
 
-    setStatus(`${rows.length} rates loaded`,'ok');
+    setStatus('Rates loaded','ok');
     $('btn-pdf').disabled = false;
   } catch(e) {
     setStatus('Failed to load — check sheet sharing','error');
@@ -817,20 +836,23 @@ function downloadPDF(){
   doc.autoTable({
     head:[cols], body:offlineRows,
     startY:28,
-    styles:{ fontSize:7.5, cellPadding:2.5, font:'helvetica', textColor:50 },
-    headStyles:{ fillColor:[216,132,106], textColor:255, fontStyle:'bold', fontSize:8 },
+    styles:{ fontSize:8, cellPadding:3, font:'helvetica', textColor:50, halign:'left', valign:'middle' },
+    headStyles:{ fillColor:[216,132,106], textColor:255, fontStyle:'bold', fontSize:8.5, halign:'center' },
     alternateRowStyles:{ fillColor:[252,252,252] },
     columnStyles:{
-      0:{cellWidth:22},  // Insurer
-      1:{cellWidth:40},  // Plan Name
-      2:{cellWidth:18},  // Plan Type
-      3:{cellWidth:14},  // PPT/PT
-      4:{cellWidth:18},  // Frequency
-      5:{cellWidth:12},  // FYC %
-      6:{cellWidth:12},  // SYC %
-      7:{cellWidth:12}   // Total %
+      0:{cellWidth:25},  // Insurer
+      1:{cellWidth:50},  // Plan Name
+      2:{cellWidth:20},  // Plan Type
+      3:{cellWidth:15},  // PPT/PT
+      4:{cellWidth:22},  // Frequency
+      5:{cellWidth:14, halign:'center'},  // FYC %
+      6:{cellWidth:14, halign:'center'},  // SYC %
+      7:{cellWidth:14, halign:'center'}   // Total %
     },
-    margin:{ left:8, right:8 },
+    margin:{ left:6, right:6, top:0, bottom:0 },
+    didParseCell: data => {
+      if(data.section==='head'){ data.cell.styles.halign = 'center'; }
+    }
   });
 
   // PAGE 3 — Online (if exists)
@@ -844,20 +866,23 @@ function downloadPDF(){
     doc.autoTable({
       head:[cols], body:onlineRows,
       startY:28,
-      styles:{ fontSize:7.5, cellPadding:2.5, font:'helvetica', textColor:50 },
-      headStyles:{ fillColor:[76,175,80], textColor:255, fontStyle:'bold', fontSize:8 },
+      styles:{ fontSize:8, cellPadding:3, font:'helvetica', textColor:50, halign:'left', valign:'middle' },
+      headStyles:{ fillColor:[76,175,80], textColor:255, fontStyle:'bold', fontSize:8.5, halign:'center' },
       alternateRowStyles:{ fillColor:[252,252,252] },
       columnStyles:{
-        0:{cellWidth:22},  // Insurer
-        1:{cellWidth:40},  // Plan Name
-        2:{cellWidth:18},  // Plan Type
-        3:{cellWidth:14},  // PPT/PT
-        4:{cellWidth:18},  // Frequency
-        5:{cellWidth:12},  // FYC %
-        6:{cellWidth:12},  // SYC %
-        7:{cellWidth:12}   // Total %
+        0:{cellWidth:25},  // Insurer
+        1:{cellWidth:50},  // Plan Name
+        2:{cellWidth:20},  // Plan Type
+        3:{cellWidth:15},  // PPT/PT
+        4:{cellWidth:22},  // Frequency
+        5:{cellWidth:14, halign:'center'},  // FYC %
+        6:{cellWidth:14, halign:'center'},  // SYC %
+        7:{cellWidth:14, halign:'center'}   // Total %
       },
-      margin:{ left:8, right:8 },
+      margin:{ left:6, right:6, top:0, bottom:0 },
+      didParseCell: data => {
+        if(data.section==='head'){ data.cell.styles.halign = 'center'; }
+      }
     });
   }
 
