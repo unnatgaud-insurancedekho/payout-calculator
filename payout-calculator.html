@@ -321,16 +321,16 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
     </div>
   </div>
 
-  <!-- STEP 5: FREQUENCY -->
+  <!-- STEP 5: EMI -->
   <div class="step-card locked" id="card-4">
     <div class="step-head">
       <div class="step-num">5</div>
-      <div class="step-title">Payment Frequency</div>
+      <div class="step-title">EMI</div>
       <div class="step-summary" id="sum-4"></div>
     </div>
     <div class="step-body">
-      <label for="sel-freq">Select frequency</label>
-      <select id="sel-freq">
+      <label for="sel-emi">Select EMI</label>
+      <select id="sel-emi">
         <option value="">— select —</option>
       </select>
     </div>
@@ -437,7 +437,7 @@ const $ = id => document.getElementById(id);
 const selInsurer = $('sel-insurer');
 const selPlan    = $('sel-plan');
 const selPpt     = $('sel-ppt');
-const selFreq    = $('sel-freq');
+const selEmi     = $('sel-emi');
 const inpPremium = $('inp-premium');
 const inpGid     = $('inp-gid');
 
@@ -475,7 +475,8 @@ async function loadData() {
     if(lines.length<2) throw new Error('Empty');
     rows = lines.slice(1).map(r=>({
       insurer:    clean(r[0]),  plan:      clean(r[1]),
-      planType:   clean(r[2]),  ppt:       clean(r[5]),
+      planType:   clean(r[2]),  emi:       clean(r[3]),
+      ppt:        clean(r[5]),
       fyc_off:    parseFloat(clean(r[6]))||0,
       syc_off:    parseFloat(clean(r[7]))||0,
       tot_off:    parseFloat(clean(r[8]))||0,
@@ -483,7 +484,6 @@ async function loadData() {
       fyc_on:     parseFloat(clean(r[10]))||0,
       syc_on:     parseFloat(clean(r[11]))||0,
       tot_on:     parseFloat(clean(r[12]))||0,
-      freq:       clean(r[13]),
     })).filter(r=>r.insurer&&r.plan);
 
     const insurers=[...new Set(rows.map(r=>r.insurer))].sort();
@@ -564,15 +564,15 @@ selPpt.addEventListener('change',()=>{
   const ppt=selPpt.value; if(!ppt) return;
   markDone(3, ppt);
   const ins=selInsurer.value, plan=selPlan.value;
-  const freqs=[...new Set(rows.filter(r=>r.insurer===ins&&r.plan===plan&&r.ppt===ppt).map(r=>r.freq))];
-  selFreq.innerHTML='<option value="">— select —</option>'+
-    freqs.map(f=>`<option value="${f}">${f}</option>`).join('');
-  if(freqs.length===1){
-    selFreq.value=freqs[0];
-    markDone(4,freqs[0]);
+  const emis=[...new Set(rows.filter(r=>r.insurer===ins&&r.plan===plan&&r.ppt===ppt).map(r=>r.emi))];
+  selEmi.innerHTML='<option value="">— select —</option>'+
+    emis.map(e=>`<option value="${e}">${e}</option>`).join('');
+  if(emis.length===1){
+    selEmi.value=emis[0];
+    markDone(4,emis[0]);
     unlockStep(5); // skip to rate step
     updateOnlineBtn();
-    // still show freq card as done
+    // still show emi card as done
     $('card-4').classList.remove('locked');
     $('card-4').classList.add('completed');
   } else {
@@ -580,18 +580,18 @@ selPpt.addEventListener('change',()=>{
   }
 });
 
-/* ---- FREQUENCY ---- */
-selFreq.addEventListener('change',()=>{
-  const freq=selFreq.value; if(!freq) return;
-  markDone(4, freq);
+/* ---- EMI ---- */
+selEmi.addEventListener('change',()=>{
+  const emi=selEmi.value; if(!emi) return;
+  markDone(4, emi);
   updateOnlineBtn();
   unlockStep(5);
 });
 
 /* ---- RATE TYPE ---- */
 function updateOnlineBtn(){
-  const ins=selInsurer.value, plan=selPlan.value, ppt=selPpt.value, freq=selFreq.value;
-  const match=rows.find(r=>r.insurer===ins&&r.plan===plan&&r.ppt===ppt&&r.freq===freq);
+  const ins=selInsurer.value, plan=selPlan.value, ppt=selPpt.value, emi=selEmi.value;
+  const match=rows.find(r=>r.insurer===ins&&r.plan===plan&&r.ppt===ppt&&r.emi===emi);
   const avail = match&&match.onlineAvail;
   $('btn-online').classList.toggle('unavailable',!avail);
   if(!avail && rateMode==='online') setRateMode('offline');
@@ -628,10 +628,10 @@ inpPremium.addEventListener('input',()=>{
 /* ---- CALCULATE ---- */
 function calculate(){
   const ins=selInsurer.value, plan=selPlan.value, ppt=selPpt.value,
-        freq=selFreq.value, premium=parseFloat(inpPremium.value);
+        emi=selEmi.value, premium=parseFloat(inpPremium.value);
   if(!ins||!plan||!premium) return;
 
-  const match=rows.find(r=>r.insurer===ins&&r.plan===plan&&r.ppt===ppt&&r.freq===freq);
+  const match=rows.find(r=>r.insurer===ins&&r.plan===plan&&r.ppt===ppt&&r.emi===emi);
   if(!match){ alert('No matching rate found.'); return; }
 
   const useOnline=(rateMode==='online')&&match.onlineAvail;
@@ -669,7 +669,7 @@ function calculate(){
   setTimeout(()=>$('result').scrollIntoView({behavior:'smooth',block:'nearest'}),100);
 
   logToSheet({ gid:inpGid.value.trim(), insurer:ins, plan, planType:match.planType,
-    ppt, freq, rateType:useOnline?'Online':'Offline', premium,
+    ppt, emi, rateType:useOnline?'Online':'Offline', premium,
     fyc, fycAmt, syc, sycAmt, total, totalAmt });
 }
 
@@ -709,7 +709,7 @@ async function logToSheet(d){
 function resetAll(){
   // Reset inputs
   inpGid.value=''; inpPremium.value='';
-  selInsurer.value=''; selPlan.value=''; selPpt.value=''; selFreq.value='';
+  selInsurer.value=''; selPlan.value=''; selPpt.value=''; selEmi.value='';
   rateMode='offline';
   $('btn-offline').classList.add('active');
   $('btn-online').classList.remove('active');
@@ -747,13 +747,13 @@ function downloadPDF(){
     planName: availableWidth * 0.32,     // 32%
     planType: availableWidth * 0.10,     // 10%
     pptPt: availableWidth * 0.16,        // 16%
-    frequency: availableWidth * 0.08,    // 8%
+    emi: availableWidth * 0.08,          // 8%
     fycPct: availableWidth * 0.05,       // 5%
     sycPct: availableWidth * 0.05,       // 5%
     totalPct: availableWidth * 0.05      // 5%
   };
 
-  const cols = ['Insurer','Channel','Plan Name','Plan Type','PPT/PT','Frequency','FYC %','SYC %','Total %'];
+  const cols = ['Insurer','Channel','Plan Name','Plan Type','PPT/PT','EMI','FYC %','SYC %','Total %'];
 
   // Group rows by insurer for offline rates
   const offlineInsurers = [...new Set(rows.map(r => r.insurer))].sort();
@@ -761,7 +761,7 @@ function downloadPDF(){
     insurer,
     channel: 'Offline',
     rows: rows.filter(r => r.insurer === insurer).map(r => [
-      r.insurer, 'Offline', r.plan, r.planType, r.ppt, r.freq,
+      r.insurer, 'Offline', r.plan, r.planType, r.ppt, r.emi,
       r.fyc_off+'%', r.syc_off+'%', r.tot_off+'%'
     ]),
     headingColor: [216,132,106]
@@ -773,7 +773,7 @@ function downloadPDF(){
     insurer,
     channel: 'Online',
     rows: rows.filter(r => r.insurer === insurer && r.onlineAvail).map(r => [
-      r.insurer, 'Online', r.plan, r.planType, r.ppt, r.freq,
+      r.insurer, 'Online', r.plan, r.planType, r.ppt, r.emi,
       r.fyc_on+'%', r.syc_on+'%', r.tot_on+'%'
     ]),
     headingColor: [76,175,80]
@@ -843,7 +843,7 @@ function downloadPDF(){
         2:{cellWidth:colWidths.planName, halign:'left'},
         3:{cellWidth:colWidths.planType, halign:'left'},
         4:{cellWidth:colWidths.pptPt, halign:'left'},
-        5:{cellWidth:colWidths.frequency, halign:'left'},
+        5:{cellWidth:colWidths.emi, halign:'left'},
         6:{cellWidth:colWidths.fycPct, halign:'center'},
         7:{cellWidth:colWidths.sycPct, halign:'center'},
         8:{cellWidth:colWidths.totalPct, halign:'center'}
